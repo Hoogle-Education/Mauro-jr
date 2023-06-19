@@ -11,8 +11,8 @@ typedef struct funcionario
 typedef struct heap
 {
   Employee *employees;
+  int accTime;
   int size;
-  int tItem;
 } Heap;
 
 int comparator(Employee *a, Employee *b)
@@ -27,6 +27,7 @@ void initializeHeap(Heap *heap)
 {
   heap->employees = NULL;
   heap->size = 0;
+  heap->accTime = 0;
 }
 
 void swap(Employee *a, Employee *b)
@@ -35,6 +36,15 @@ void swap(Employee *a, Employee *b)
   *a = *b;
   *b = temp;
 }
+
+// void showHeap(Heap *heap)
+// {
+//   for (int i = 0; i < heap->size; i++)
+//   {
+//     printf("%d(%d) ", heap->employees[i].id, heap->employees[i].remainingTime);
+//   }
+//   printf("\n");
+// }
 
 void heapifyUp(Heap *heap, int index)
 {
@@ -65,25 +75,77 @@ void insertEmployee(Heap *heap, int id, int speed)
   heapifyUp(heap, heap->size - 1);
 }
 
-void processItem(Heap *heap, int time)
+void heapifyDown(Heap *heap, int index)
+{
+  // printf("down... at index: %d\n", index);
+  int leftChild = 2 * index + 1;
+  int rightChild = 2 * index + 2;
+  int smallest = index;
+
+  if (leftChild < heap->size)
+  {
+    int leftComparison = comparator(
+        &heap->employees[leftChild],
+        &heap->employees[smallest]);
+
+    if (leftComparison < 0)
+      smallest = leftChild;
+  }
+
+  if (rightChild < heap->size)
+  {
+    int rightComparison = comparator(
+        &heap->employees[rightChild],
+        &heap->employees[smallest]);
+
+    if (rightComparison < 0)
+      smallest = rightChild;
+  }
+
+  if (smallest != index)
+  {
+    swap(&heap->employees[index], &heap->employees[smallest]);
+    heapifyDown(heap, smallest);
+  }
+}
+
+void processItem(Heap *heap, int nItems)
 {
   if (heap->size <= 0)
   {
     printf("Heap is empty.\n");
-    return -1; // Indicador de erro
+    return; // Indicador de erro
   }
 
   Employee *min = &heap->employees[0];
-  min->remainingTime = min->speed * time;
+  // puts("----------------");
+  // printf("MIN: %d (%d)\n", min->id, min->remainingTime);
+  // printf("HEAP: ");
+  // showHeap(heap);
+  // puts("----------------");
+
+  if (min->remainingTime != 0)
+  {
+    int timeToPass = min->remainingTime;
+    heap->accTime += timeToPass;
+    for (int i = 0; i < heap->size; i++)
+    {
+      heap->employees[i].remainingTime -= timeToPass;
+    }
+  }
+
+  // tem algum funcionario livre
+  min->remainingTime = min->speed * nItems;
   heapifyDown(heap, 0);
 }
 
 // 3 5
 // 1(0) 2(0) 3(0)
 // 2(0) 3(0) 1(3)
-// 3(0) 2(8) 1(3)
-// 3(3) 2(5) 1(0) + 3
-// 1(11) 3(3) 2(5) + 3
+// 3(0) 1(3) 2(8)
+// 1(3) 3(6) 2(8)
+// 1(0) 3(3) 2(5) + 3
+// 3(3) 2(5) 1(11)+ 3
 // 3(3) 2(5) 1(11) + 3
 // 3(0) 2(2) 1(8) + 3 + 3
 // 3(15) 2(2) 1(8) + 3 + 3
@@ -98,7 +160,7 @@ void processItem(Heap *heap, int time)
 
 // se o houver alguem disponivel
 // escolhe o mais disponivel de menor id
-// adiciona o item
+// adiciona o item + heapifydown
 // senao (liberaFuncionario)
 // processa o menor tempo de processamento
 // ajusta os funcionarios
@@ -106,65 +168,12 @@ void processItem(Heap *heap, int time)
 
 // se chegou ao fim, repete o processo de liberar funcionarios
 // enquanto houver algum funcionario ocupado
-void heapifyDown(Heap *heap, int index)
-{
-  int leftChild = 2 * index + 1;
-  int rightChild = 2 * index + 2;
-  int smallest = index;
-
-  int leftComparison = comparator(
-      &heap->employees[leftChild],
-      &heap->employees[smallest]);
-
-  int rightComparison = comparator(
-      &heap->employees[rightChild],
-      &heap->employees[smallest]);
-
-  if (leftChild < heap->size && leftComparison < 0)
-    smallest = leftChild;
-
-  if (rightChild < heap->size && rightComparison < 0)
-    smallest = rightChild;
-
-  if (smallest != index)
-  {
-    swap(&heap->employees[index], &heap->employees[smallest]);
-    heapifyDown(heap, smallest);
-  }
-}
-
-Employee *extractMin(Heap *heap)
-{
-  if (heap->size <= 0)
-  {
-    printf("Heap is empty.\n");
-    return -1; // Indicador de erro
-  }
-
-  Employee *min;
-  min->id = heap->employees[0].id;
-  min->speed = heap->employees[0].speed;
-
-  heap->employees[0] = heap->employees[heap->size - 1];
-  heap->size--;
-
-  if (heap->size > 0)
-    heap->employees = realloc(heap->employees, heap->size * sizeof(Employee));
-  else
-  {
-    free(heap->employees);
-    heap->employees = NULL;
-  }
-
-  heapifyDown(heap, 0);
-  return min;
-}
 
 int main()
 {
   Heap heap;
   initializeHeap(&heap);
-  int N, M, i, j;
+  int N, M, i, j, k;
   scanf("%d %d", &N, &M);
 
   for (i = 1; i <= N; i++)
@@ -174,13 +183,29 @@ int main()
     insertEmployee(&heap, i, speed);
   }
 
-  printf("Heap elements: ");
-
-  while (heap.size > 0)
+  for (j = 1; j <= M; j++)
   {
-    int min = extractMin(&heap);
-    printf("%d, %d ", min);
+    int nItems;
+    scanf("%d", &nItems);
+    processItem(&heap, nItems);
   }
+
+  int remainingTimeToPass = -1;
+  for (k = 0; k < heap.size; k++)
+  {
+    Employee *emp = &heap.employees[k];
+    // printf("remaining time [0] = %d\n", emp->remainingTime);
+
+    if (emp->remainingTime > remainingTimeToPass)
+    {
+      remainingTimeToPass = emp->remainingTime;
+    }
+  }
+
+  heap.accTime += remainingTimeToPass;
+
+  // printf("TOTAL TIME: %d\n", heap.accTime);
+  printf("%d\n", heap.accTime);
 
   return 0;
 }
